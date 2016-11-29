@@ -1,14 +1,15 @@
 output "ip_addresses" {
     value = ["${digitalocean_droplet.host.*.ipv4_address}"]
 }
-output "ids" {
-    value = ["${digitalocean_droplet.host.*.id}"]
+output "id" {
+    value = "${digitalocean_droplet.host.id}"
 }
-variable "prefix" {}
 variable "domain" {}
 variable "ssh_key_id" {}
 variable "private_key" {}
-variable "servers" {}
+variable "servers" {
+    default = 3
+}
 variable "size" {
     default = "512mb"
 }
@@ -20,14 +21,19 @@ data "template_file" "config" {
     template = "${file("${path.module}/consul.conf")}"
 
     vars {
-        node_name = "consul-1"
+        node_name = "consul-${count.index+1}"
         datacenter = "dc1"
     }
 }
 
+data "template_file" "debug_data" {
+    template = "${v}"
+    vars{v = "${var.domain}"}
+}
+
 resource "digitalocean_droplet" "host" {
     count = "${var.servers}"
-    name = "${var.prefix}-${count.index + 1}.${var.domain}"
+    name = "consul-${count.index + 1}.${var.domain}"
     size = "${var.size}"
     image = "centos-6-5-x64"
     region = "${var.region}"
@@ -44,11 +50,6 @@ resource "digitalocean_droplet" "host" {
     provisioner "file" {
         source = "${path.module}/service.sh"
         destination = "/etc/init.d/consul"
-    }
-
-    provisioner "file" {
-        destination = "/etc/consul.conf"
-        content = "${data.template_file.config.rendered}"
     }
 
     provisioner "remote-exec" {
@@ -72,9 +73,7 @@ resource "digitalocean_droplet" "host" {
             "yum update -y",
             "yum install -y wget unzip",
             "wget https://releases.hashicorp.com/consul/0.7.1/consul_0.7.1_linux_amd64.zip",
-            "wget https://releases.hashicorp.com/consul-template/0.16.0/consul-template_0.16.0_linux_amd64.zip",
-            "unzip consul_*.zip",
-            "unzip consul-template_*.zip",
+            "unzip consul*.zip",
             "mv consul /usr/local/bin",
             "chmod +x /etc/init.d/consul",
             "useradd -m consul",
@@ -84,21 +83,43 @@ resource "digitalocean_droplet" "host" {
         ]
     }
 
+    provisioner "file" {
+        destination = "/etc/consul.conf"
+        content = "${data.template_file.config.rendered}"
+    }
+
     provisioner "remote-exec" {
         inline = [
-            "chmod +x /etc/init.d/consul",
-            "sed -i 's/consul-1/consul-${count.index + 1}/g' /etc/consul.conf",
+            "sed -i 's/99999/${var.servers}/g' /etc/consul.conf",
+            "sed -i 's/consul-1/consul-${count.index+1}/g' /etc/consul.conf",
+            "(hostname | grep -v \"consul-1\" > /dev/null) && sed -i 's/^.*bootstrap.*$//g' /etc/consul.conf",
             "echo '{\"advertise_addr\": \"${self.ipv4_address_private}\"}' > /etc/consul.d/private_address.json",
             "service consul start",
         ]
     }
 }
 
-resource "digitalocean_domain" "dns" {
-    count = "${var.servers}"
+resource "null_resource" "cluster_init" {
+    depends_on = ["digitalocean_droplet.host"]
 
-    name = "${var.prefix}-${count.index + 1}.${var.domain}"
-    ip_address = "${element(digitalocean_droplet.host.*.ipv4_address, count.index)}"
+    connection {
+        host = "${digitalocean_droplet.host.0.ipv4_address}"
+        user = "root"
+        type = "ssh"
+        key_file = "${var.private_key}"
+        timeout = "30s"
+    }
+
+    provisioner "remote-exec" {
+        inline = [
+            "/usr/local/bin/consul join ${join(" ", digitalocean_droplet.host.*.ipv4_address)}"
+        ]
+    }
 }
 
+resource "digitalocean_domain" "dns" {
+    count = "${var.servers}"
+    name = "consul-${count.index + 1}.${var.domain}"
+    ip_address = "${element(digitalocean_droplet.host.*.ipv4_address, count.index)}"
+}
 

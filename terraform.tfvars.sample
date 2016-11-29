@@ -1,0 +1,8 @@
+do_token = "<API KEY GOES HERE>"
+ssh_key_id = The DigitalOcean SSH key id
+private_key = "~/.ssh/id_rsa"
+db_admin_user = "<db admin user name>"
+db_admin_password = "Pick a string. A long one."
+branch = "<The branch of the edge to deploy>"
+api_password = "<The password for API_USER>"
+

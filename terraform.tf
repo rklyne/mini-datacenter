@@ -24,8 +24,8 @@ provider "digitalocean" {
 }
 
 
-module "consul" {
-    source = "./consul"
+module "consul-cluster" {
+    source = "./consul-cluster"
     servers = 3
     ssh_key_id = "${var.ssh_key_id}"
     private_key = "${var.private_key}"
