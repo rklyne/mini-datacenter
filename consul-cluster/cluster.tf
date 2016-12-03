@@ -11,9 +11,13 @@ variable "region" {
     default = "lon1"
 }
 
+output "ip_addresses" {
+    value = ["${module.consul-server.ip_addresses}"]
+}
+
 module "consul-server" {
     servers = "${var.servers}"
-    source = "../consul"
+    source = "../base"
     prefix = "consul"
     domain = "${var.domain}"
     ssh_key_id = "${var.ssh_key_id}"
@@ -35,8 +39,16 @@ resource "null_resource" "server_config" {
 
     provisioner "remote-exec" {
         inline = [
+            "yum install -y dnsmasq",
+            "echo 'server=/consul/127.0.0.1#8600' > /etc/dnsmasq.d/consul",
             "echo '{\"server\": true}' > /etc/consul.d/server.json",
+            "echo '{\"bootstrap_expect\": ${var.servers}}' > /etc/consul.d/bootstrap.json",
             "service consul restart",
+            "service dnsmasq restart",
+            # "iptables -t nat -A PREROUTING -p udp -m udp --dport 53 -j REDIRECT --to-ports 8600",
+            # "iptables -t nat -A PREROUTING -p tcp -m tcp --dport 53 -j REDIRECT --to-ports 8600",
+            # "iptables -t nat -A OUTPUT -d localhost -p udp -m udp --dport 53 -j REDIRECT --to-ports 8600",
+            # "iptables -t nat -A OUTPUT -d localhost -p tcp -m tcp --dport 53 -j REDIRECT --to-ports 8600",
         ]
     }
 }
@@ -54,8 +66,6 @@ resource "null_resource" "cluster_init" {
 
     provisioner "remote-exec" {
         inline = [
-            "echo '{\"bootstrap_expect\": ${var.servers}}' > /etc/consul.d/bootstrap.json",
-            "service consul restart",
             "/usr/local/bin/consul join ${join(" ", module.consul-server.ip_addresses)}"
         ]
     }

@@ -33,3 +33,24 @@ module "consul-cluster" {
     domain = "${var.domain}"
 }
 
+
+module "vault-1" {
+    source = "./vault"
+    prefix = "vault"
+    ssh_key_id = "${var.ssh_key_id}"
+    private_key = "${var.private_key}"
+    size = "${var.consul_server_size}"
+    domain = "${var.domain}"
+    consul_ipv4_addresses = ["${module.consul-cluster.ip_addresses}"]
+}
+
+# module "vault-2" {
+#     source = "./vault"
+#     prefix = "testvault"
+#     ssh_key_id = "${var.ssh_key_id}"
+#     private_key = "${var.private_key}"
+#     size = "${var.consul_server_size}"
+#     domain = "${var.domain}"
+#     consul_ipv4_addresses = ["${module.consul-cluster.ip_addresses}"]
+# }
+

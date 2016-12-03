@@ -15,12 +15,15 @@ variable "size" {
 variable "region" {
     default = "lon1"
 }
+variable "consul_ipv4_addresses" {
+    default = []
+}
 
 data "template_file" "config" {
     template = "${file("${path.module}/consul.conf")}"
 
     vars {
-        node_name = "consul-1"
+        node_name = "${uuid()}"
         datacenter = "dc1"
     }
 }
@@ -70,7 +73,7 @@ resource "digitalocean_droplet" "host" {
     provisioner "remote-exec" {
         inline = [
             "yum update -y",
-            "yum install -y wget unzip",
+            "yum install -y wget unzip bind-utils",
             "wget https://releases.hashicorp.com/consul/0.7.1/consul_0.7.1_linux_amd64.zip",
             "wget https://releases.hashicorp.com/consul-template/0.16.0/consul-template_0.16.0_linux_amd64.zip",
             "unzip consul_*.zip",
@@ -87,9 +90,10 @@ resource "digitalocean_droplet" "host" {
     provisioner "remote-exec" {
         inline = [
             "chmod +x /etc/init.d/consul",
-            "sed -i 's/consul-1/consul-${count.index + 1}/g' /etc/consul.conf",
             "echo '{\"advertise_addr\": \"${self.ipv4_address_private}\"}' > /etc/consul.d/private_address.json",
             "service consul start",
+            "sleep 3",
+            "consul join ${join(" ", var.consul_ipv4_addresses)}",
         ]
     }
 }
