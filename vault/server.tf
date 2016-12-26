@@ -19,10 +19,10 @@ variable "consul_ipv4_addresses" {
     default = []
 }
 variable "key_shares" {
-    default = 3
+    default = 5
 }
 variable "key_threshold" {
-    default = 5
+    default = 2
 }
 
 module "hosts" {
@@ -79,6 +79,7 @@ resource "null_resource" "vault_install" {
             ". ./vault-addr.sh",
             "vault init -key-shares=${var.key_shares} -key-threshold=${var.key_threshold} | tee -a vault-init",
             "for k in `cat vault-init  | grep \"Unseal Key\" | awk -F: '{print $2}'`; do vault unseal $k; done",
+            "cp vault-init vault-keys-`uuidgen`",
             "cat vault-init  | grep \"Root Token\" | awk -F: '{print $2}' | xargs vault auth",
             ]
     }

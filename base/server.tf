@@ -1,3 +1,6 @@
+output "hostnames" {
+    value = ["${digitalocean_droplet.host.*.name}"]
+}
 output "ip_addresses" {
     value = ["${digitalocean_droplet.host.*.ipv4_address}"]
 }
@@ -18,13 +21,16 @@ variable "region" {
 variable "consul_ipv4_addresses" {
     default = []
 }
+variable "datacenter" {
+    default = "dc1"
+}
 
 data "template_file" "config" {
     template = "${file("${path.module}/consul.conf")}"
 
     vars {
-        node_name = "${uuid()}"
-        datacenter = "dc1"
+        node_name = "NODE_NAME"
+        datacenter = "${var.datacenter}"
     }
 }
 
@@ -60,7 +66,7 @@ resource "digitalocean_droplet" "host" {
             "mkdir /root/.pip/",
             # Swap is necessary to build libs (e.g. lxml) on 512mb ram.
             # 4Gb.
-            "echo makign swap file",
+            "echo making swap file",
             "dd if=/dev/zero of=/swapfile bs=1M count=4096",
             "echo formattign swap file",
             "mkswap /swapfile",
@@ -79,6 +85,7 @@ resource "digitalocean_droplet" "host" {
             "unzip consul_*.zip",
             "unzip consul-template_*.zip",
             "mv consul /usr/local/bin",
+            "mv consul-template /usr/local/bin",
             "chmod +x /etc/init.d/consul",
             "useradd -m consul",
             "mkdir /etc/consul.d",
@@ -90,10 +97,15 @@ resource "digitalocean_droplet" "host" {
     provisioner "remote-exec" {
         inline = [
             "chmod +x /etc/init.d/consul",
+            "sed -i 's/NODE_NAME/${uuid()}/' /etc/consul.conf",
             "echo '{\"advertise_addr\": \"${self.ipv4_address_private}\"}' > /etc/consul.d/private_address.json",
+            "echo -e 'nameserver ${join("\nnameserver ", var.consul_ipv4_addresses)}' > /tmp/new-resolv.conf",
+            "cat /tmp/new-resolv.conf | sort | uniq > /tmp/new-resolv2.conf",
+            "cat /etc/resolv.conf >> /tmp/new-resolv2.conf",
+            "cat /tmp/new-resolv2.conf > /etc/resolv.conf",
             "service consul start",
             "sleep 3",
-            "consul join ${join(" ", var.consul_ipv4_addresses)}",
+            "for srv in ${join(" ", var.consul_ipv4_addresses)}; do consul join $srv; done",
         ]
     }
 }

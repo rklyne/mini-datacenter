@@ -27,6 +27,8 @@ module "consul-server" {
 }
 
 resource "null_resource" "server_config" {
+    depends_on = ["module.consul-server"]
+
     count = "${var.servers}"
 
     connection {
@@ -41,6 +43,7 @@ resource "null_resource" "server_config" {
         inline = [
             "yum install -y dnsmasq",
             "echo 'server=/consul/127.0.0.1#8600' > /etc/dnsmasq.d/consul",
+            "echo 'conf-dir=/etc/dnsmasq.d' >> /etc/dnsmasq.conf",
             "echo '{\"server\": true}' > /etc/consul.d/server.json",
             "echo '{\"bootstrap_expect\": ${var.servers}}' > /etc/consul.d/bootstrap.json",
             "service consul restart",
@@ -66,7 +69,7 @@ resource "null_resource" "cluster_init" {
 
     provisioner "remote-exec" {
         inline = [
-            "/usr/local/bin/consul join ${join(" ", module.consul-server.ip_addresses)}"
+            "/usr/local/bin/consul join ${join(" ", module.consul-server.ip_addresses)} || echo \"No nodes to join\""
         ]
     }
 }
