@@ -1,5 +1,6 @@
 output "hostnames" {
-    value = ["${digitalocean_droplet.host.*.name}"]
+    depends_on = ["digitalocean_domain.dns.*"]
+    value = ["${digitalocean_domain.dns.*.name}"]
 }
 output "ip_addresses" {
     value = ["${digitalocean_droplet.host.*.ipv4_address}"]
@@ -111,6 +112,8 @@ resource "digitalocean_droplet" "host" {
 }
 
 resource "digitalocean_domain" "dns" {
+    depends_on = ["digitalocean_droplet.host"]
+
     count = "${var.servers}"
 
     name = "${var.prefix}-${count.index + 1}.${var.domain}"

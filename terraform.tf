@@ -31,7 +31,7 @@ module "consul-cluster" {
     source = "./consul-cluster"
     servers = 1
     ssh_key_id = "${var.ssh_key_id}"
-    private_key = "${var.private_key}"
+    private_key = "${file(var.private_key)}"
     size = "${var.consul_server_size}"
     domain = "${var.domain}"
 }
@@ -42,7 +42,7 @@ module "vault-1" {
     source = "./vault"
     prefix = "vault"
     ssh_key_id = "${var.ssh_key_id}"
-    private_key = "${var.private_key}"
+    private_key = "${file(var.private_key)}"
     size = "${var.consul_server_size}"
     domain = "${var.domain}"
     consul_ipv4_addresses = ["${module.consul-cluster.ip_addresses}"]
@@ -53,18 +53,18 @@ module "puppetmaster" {
     source = "./puppetserver"
     prefix = "puppetmaster"
     ssh_key_id = "${var.ssh_key_id}"
-    private_key = "${var.private_key}"
+    private_key = "${file(var.private_key)}"
     size = "${var.consul_server_size}"
     domain = "${var.domain}"
     consul_ipv4_addresses = ["${module.consul-cluster.ip_addresses}"]
 }
 
 module "puppetagent" {
-    servers = 1
+    servers = 2
     source = "./puppetagent"
     prefix = "agent"
     ssh_key_id = "${var.ssh_key_id}"
-    private_key = "${var.private_key}"
+    private_key = "${file(var.private_key)}"
     size = "${var.consul_server_size}"
     domain = "${var.domain}"
     consul_ipv4_addresses = ["${module.consul-cluster.ip_addresses}"]
@@ -77,7 +77,7 @@ module "puppetagent" {
 #     source = "./base"
 #     prefix = "spike"
 #     ssh_key_id = "${var.ssh_key_id}"
-#     private_key = "${var.private_key}"
+#     private_key = "${file(var.private_key)}"
 #     size = "${var.consul_server_size}"
 #     domain = "${var.domain}"
 #     consul_ipv4_addresses = ["${module.consul-cluster.ip_addresses}"]
@@ -90,7 +90,7 @@ module "puppetagent" {
 #     source = "./redis"
 #     prefix = "redistest"
 #     ssh_key_id = "${var.ssh_key_id}"
-#     private_key = "${var.private_key}"
+#     private_key = "${file(var.private_key)}"
 #     size = "${var.consul_server_size}"
 #     domain = "${var.domain}"
 #     consul_ipv4_addresses = ["${module.consul-cluster.ip_addresses}"]
@@ -102,7 +102,7 @@ module "puppetagent" {
 #     source = "./vault"
 #     prefix = "testvault"
 #     ssh_key_id = "${var.ssh_key_id}"
-#     private_key = "${var.private_key}"
+#     private_key = "${file(var.private_key)}"
 #     size = "${var.consul_server_size}"
 #     domain = "${var.domain}"
 #     consul_ipv4_addresses = ["${module.consul-cluster.ip_addresses}"]

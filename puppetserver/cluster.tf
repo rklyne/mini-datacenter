@@ -21,10 +21,12 @@ variable "consul_ipv4_addresses" {
 }
 
 output "hostnames" {
+    depends_on = ["null_resource.server_config"]
     value = ["${module.consul-base.hostnames}"]
 }
 
 output "ip_addresses" {
+    depends_on = ["null_resource.server_config"]
     value = ["${module.consul-base.ip_addresses}"]
 }
 
@@ -41,6 +43,8 @@ module "consul-base" {
 }
 
 resource "null_resource" "server_config" {
+    depends_on = ["module.consul-base"]
+
     count = "${var.servers}"
     triggers = {
         hosts = "${element(module.consul-base.ip_addresses, count.index)}"
@@ -50,7 +54,7 @@ resource "null_resource" "server_config" {
         host = "${element(module.consul-base.ip_addresses, count.index)}"
         user = "root"
         type = "ssh"
-        key_file = "${var.private_key}"
+        private_key = "${var.private_key}"
         timeout = "30s"
     }
 
@@ -62,7 +66,7 @@ resource "null_resource" "server_config" {
             "echo -e '\n[main]\ndns_alt_names = ${var.service_name}.service.dc1.consul' >> /etc/puppetlabs/puppet/puppet.conf",
             "echo -e '{\"service\": {\"name\": \"${var.service_name}\", \"tags\": [\"master\"]}}' > /etc/consul.d/service-puppetmaster.json",
             "consul reload",
-            "service puppetserver start",
+            "chkconfig puppetserver on",
             "/opt/puppetlabs/bin/puppet cert list",
         ]
     }
@@ -75,6 +79,12 @@ resource "null_resource" "server_config" {
     provisioner "file" {
         source = "${path.module}/modules/"
         destination = "/etc/puppetlabs/code/environments/production/modules/"
+    }
+
+    provisioner "remote-exec" {
+        inline = [
+            "service puppetserver restart",
+        ]
     }
 }
 

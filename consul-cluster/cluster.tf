@@ -35,7 +35,7 @@ resource "null_resource" "server_config" {
         host = "${element(module.consul-server.ip_addresses, count.index)}"
         user = "root"
         type = "ssh"
-        key_file = "${var.private_key}"
+        private_key = "${var.private_key}"
         timeout = "30s"
     }
 
@@ -63,7 +63,7 @@ resource "null_resource" "cluster_init" {
         host = "${element(module.consul-server.ip_addresses, 0)}"
         user = "root"
         type = "ssh"
-        key_file = "${var.private_key}"
+        private_key = "${var.private_key}"
         timeout = "30s"
     }
 

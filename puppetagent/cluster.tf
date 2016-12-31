@@ -37,16 +37,20 @@ module "consul-base" {
 }
 
 resource "null_resource" "server_config" {
+    depends_on = ["module.consul-base"]
+
     count = "${var.servers}"
     triggers = {
         hosts = "${element(module.consul-base.ip_addresses, count.index)}"
+        puppetmaster = "${var.puppetmaster}"
+        datacenter = "${var.datacenter}"
     }
 
     connection {
         host = "${element(module.consul-base.ip_addresses, count.index)}"
         user = "root"
         type = "ssh"
-        key_file = "${var.private_key}"
+        private_key = "${var.private_key}"
         timeout = "30s"
     }
 
@@ -58,22 +62,24 @@ resource "null_resource" "server_config" {
             "chkconfig puppet on",
             "echo -e '[main]\nserver = puppetmaster.service.${var.datacenter}.consul\nruninterval = 30s' >> /etc/puppetlabs/puppet/puppet.conf",
             "/opt/puppetlabs/bin/puppet agent --test",
+            "( D='/tmp/${uuid()}' && mkdir $D && cd $D && cp /tmp/*.sh . )",
         ]
     }
 }
 
 resource "null_resource" "sign_cert_on_master" {
+    depends_on = ["null_resource.server_config"]
+
     count = "${var.servers}"
     triggers = {
         hosts = "${var.puppetmaster}"
-        server = "${null_resource.server_config.id}"
     }
 
     connection {
         host = "${var.puppetmaster}"
         user = "root"
         type = "ssh"
-        key_file = "${var.private_key}"
+        private_key = "${var.private_key}"
         timeout = "30s"
     }
 
@@ -81,22 +87,24 @@ resource "null_resource" "sign_cert_on_master" {
     provisioner "remote-exec" {
         inline = [
             "puppet cert sign ${element(module.consul-base.hostnames, count.index)}",
+            "( D='/tmp/${uuid()}' && mkdir $D && cd $D && cp /tmp/*.sh . )",
         ]
     }
 }
 
 resource "null_resource" "fetch_signed_cert_and_start" {
+    depends_on = ["null_resource.sign_cert_on_master"]
+
     count = "${var.servers}"
     triggers = {
         hosts = "${var.puppetmaster}"
-        signed = "${null_resource.sign_cert_on_master.id}"
     }
 
     connection {
         host = "${element(module.consul-base.ip_addresses, count.index)}"
         user = "root"
         type = "ssh"
-        key_file = "${var.private_key}"
+        private_key = "${var.private_key}"
         timeout = "30s"
     }
 
@@ -105,6 +113,7 @@ resource "null_resource" "fetch_signed_cert_and_start" {
             "/opt/puppetlabs/bin/puppet resource service puppet ensure=running enable=true",
             "puppet agent --test",
             "service puppet restart",
+            "( D='/tmp/${uuid()}' && mkdir $D && cd $D && cp /tmp/*.sh . )",
         ]
     }
 }

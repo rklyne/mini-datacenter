@@ -47,7 +47,7 @@ resource "null_resource" "vault_install" {
         host = "${element(module.hosts.ip_addresses, count.index)}"
         user = "root"
         type = "ssh"
-        key_file = "${var.private_key}"
+        private_key = "${var.private_key}"
         timeout = "30s"
     }
 
